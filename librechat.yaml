@@ -18,4 +18,5 @@ endpoints:
       modelDisplayLabel: "DeepSeek V4"
 # for the search tool:
       toolCalling: true
-      toolSchema: "openai
+      dropParams: []
+      toolSchema: "openai"
