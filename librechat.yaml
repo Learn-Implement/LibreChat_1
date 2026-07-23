@@ -16,7 +16,4 @@ endpoints:
       titleConvo: true
       titleModel: "deepseek-v4-pro"
       modelDisplayLabel: "DeepSeek V4"
-# for the search tool:
-      toolCalling: true
-      dropParams: []
-      toolSchema: "openai"
+
