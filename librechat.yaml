@@ -17,3 +17,8 @@ endpoints:
       titleModel: "deepseek-v4-pro"
       modelDisplayLabel: "DeepSeek V4"
 
+  webSearch:
+  searchProvider: "tavily"
+  serperApiKey: "${SERPER_API_KEY}"
+  tavilyApiKey: "${TAVILY_API_KEY}"
+
