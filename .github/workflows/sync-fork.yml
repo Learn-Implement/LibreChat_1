@@ -1,0 +1,37 @@
+name: Sync Fork with Upstream
+
+on:
+  # Runs daily at 03:00 UTC – adjust if you prefer a different time
+  schedule:
+    - cron: '0 3 * * *'
+  # Allows you to run it manually from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout your fork
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream and merge
+        run: |
+          git remote add upstream https://github.com/danny-avila/LibreChat.git
+          git fetch upstream
+          git checkout main
+          # Merge upstream changes – this preserves your custom commits
+          git merge upstream/main --no-edit
+
+      - name: Push changes to fork
+        run: git push origin main
