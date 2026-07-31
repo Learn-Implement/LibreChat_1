@@ -1,0 +1,41 @@
+services:
+  meilisearch:
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+
+  api:
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml
+    environment:
+      MONGO_URI: ${MONGO_URI}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      CREDS_KEY: ${CREDS_KEY}
+      CREDS_IV: ${CREDS_IV}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      QWEN_API_KEY: ${QWEN_API_KEY}
+      TAVILY_API_KEY: ${TAVILY_API_KEY}
+      SERPER_API_KEY: ${SERPER_API_KEY}
+      DOMAIN_CLIENT: ${DOMAIN_CLIENT}
+      DOMAIN_SERVER: ${DOMAIN_SERVER}
+      HOST: ${HOST}
+      PORT: ${PORT}
+      OPENAI_EXTRA_BODY: ${OPENAI_EXTRA_BODY}
+      CONFIG_PATH: ${CONFIG_PATH}
+      SEARCH: ${SEARCH}
+      MEILI_HOST: ${MEILI_HOST}
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+
+  admin-panel:
+    environment:
+      SESSION_SECRET: ${ADMIN_PANEL_SESSION_SECRET}
+
+  rag_api:
+    image: registry.librechat.ai/danny-avila/librechat-rag-api-dev:latest
+    environment:
+      RAG_OPENAI_API_KEY: ${RAG_OPENAI_API_KEY}
+      EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER}
+      EMBEDDINGS_MODEL: ${EMBEDDINGS_MODEL}
+      OCR_API_KEY: ${OCR_API_KEY}
+      OCR_PROVIDER: ${OCR_PROVIDER}
