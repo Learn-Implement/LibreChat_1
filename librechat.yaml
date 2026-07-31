@@ -48,3 +48,18 @@ endpoints:
           threshold: "BLOCK_NONE"
         - category: "HARM_CATEGORY_DANGEROUS_CONTENT"
           threshold: "BLOCK_NONE"
+
+    - name: "Qwen"
+      apiKey: "${QWEN_API_KEY}"
+      baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      models:
+        default:
+          - qwen-max
+          - qwen-plus
+          - qwen-turbo
+          - qwen-long
+          - qwen-omni-turbo
+        fetch: false
+      titleConvo: true
+      titleModel: "qwen-max"          # <-- set as default Qwen model
+      modelDisplayLabel: "Qwen"
