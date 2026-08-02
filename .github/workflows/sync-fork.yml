@@ -23,6 +23,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Set remote URL with PAT
+        run: |
+          git remote set-url origin https://Learn-Implement:${PAT}@github.com/Learn-Implement/LibreChat_1.git
+        env:
+          PAT: ${{ secrets.PAT }}
+
       - name: Add upstream and merge
         run: |
           git remote add upstream https://github.com/danny-avila/LibreChat.git
