@@ -29,6 +29,16 @@ jobs:
         env:
           PAT: ${{ secrets.PAT }}
 
+      - name: Debug PAT presence
+          run: |
+            if [ -n "$PAT" ]; then
+              echo "PAT is set (length: ${#PAT})"
+            else
+              echo "PAT is NOT set"
+            fi
+          env:
+            PAT: ${{ secrets.PAT }}
+
       - name: Add upstream and merge
         run: |
           git remote add upstream https://github.com/danny-avila/LibreChat.git
