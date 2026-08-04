@@ -23,12 +23,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Set remote URL with PAT
-        run: |
-          git remote set-url origin https://Learn-Implement:${PAT}@github.com/Learn-Implement/LibreChat_1.git
-        env:
-          PAT: ${{ secrets.PAT }}
-
       - name: Debug PAT presence
         run: |
           if [ -n "$PAT" ]; then
@@ -47,7 +41,11 @@ jobs:
           git merge upstream/main --no-edit
 
       - name: Push changes to fork
-        run: git push origin main
+        run: |
+          git remote set-url origin https://Learn-Implement:${PAT}@github.com/Learn-Implement/LibreChat_1.git
+          git push origin main
+        env:
+          PAT: ${{ secrets.PAT }}
 
       - name: Create issue on conflict
         if: failure()
