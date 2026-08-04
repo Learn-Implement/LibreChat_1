@@ -42,8 +42,7 @@ jobs:
 
       - name: Push changes to fork
         run: |
-          git remote set-url origin https://Learn-Implement:${PAT}@github.com/Learn-Implement/LibreChat_1.git
-          git push origin main
+          git push https://Learn-Implement:${PAT}@github.com/Learn-Implement/LibreChat_1.git main
         env:
           PAT: ${{ secrets.PAT }}
 
