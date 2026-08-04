@@ -33,6 +33,13 @@ jobs:
         env:
           PAT: ${{ secrets.PAT }}
 
+      - name: Check PAT prefix (safe)
+        run: |
+          echo "PAT prefix: ${PAT:0:4}..."
+          echo "PAT length: ${#PAT}"
+        env:
+          PAT: ${{ secrets.PAT }}
+
       - name: Add upstream and merge
         run: |
           git remote add upstream https://github.com/danny-avila/LibreChat.git
@@ -42,7 +49,7 @@ jobs:
 
       - name: Push changes to fork
         run: |
-          git push https://Learn-Implement:${PAT}@github.com/Learn-Implement/LibreChat_1.git main
+          git push -v https://Learn-Implement:${PAT}@github.com/Learn-Implement/LibreChat_1.git main
         env:
           PAT: ${{ secrets.PAT }}
 
