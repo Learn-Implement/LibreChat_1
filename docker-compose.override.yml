@@ -32,7 +32,7 @@ services:
       SESSION_SECRET: ${ADMIN_PANEL_SESSION_SECRET}
 
   rag_api:
-    image: registry.librechat.ai/danny-avila/librechat-rag-api-dev-lite:latest
+    image: registry.librechat.ai/danny-avila/librechat-rag-api-dev:latest
     environment:
       RAG_OPENAI_API_KEY: ${RAG_OPENAI_API_KEY}
       EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER}
