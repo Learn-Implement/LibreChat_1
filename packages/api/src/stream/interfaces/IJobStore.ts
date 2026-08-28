@@ -5,6 +5,7 @@ import type {
   UserSubmittedMessageFieldPath,
 } from 'librechat-data-provider';
 import type { RunStep, StandardGraph } from '@librechat/agents';
+import type { AgentEventDetachedTerminalEvidence } from '~/agents/triggers/types';
 import type { ActivityPhaseSnapshot } from '~/agents/activityPhases/runtime';
 import type { ResolvedAskUserQuestion } from '~/agents/hitl/resume';
 import type { RecoveredSteerPayload } from '../SteerRecovery';
@@ -199,6 +200,10 @@ export interface SerializableJobData {
   /** Opaque identity of the currently executing provider segment. A HITL resume
    * replaces it so an earlier paused segment cannot acknowledge the new run. */
   providerExecutionId?: string;
+  /** Durable evidence that the current provider owner crossed its start CAS.
+   * Unlike `providerDrained`, this identity survives terminal drain so host
+   * compensation can distinguish a projected-but-never-started resume. */
+  providerExecutionStartedId?: string;
   /** False while the identified provider segment can still mutate user data;
    * true before provider startup and after the owner has fully unwound. */
   providerDrained?: boolean;
@@ -279,9 +284,19 @@ export interface SerializableJobData {
    */
   isTemporary?: boolean;
   agentEventDeliveryKey?: string;
+  /** Original actor invocation when an internal completion delivery owns this generation. */
+  agentEventInvocationKey?: string;
+  /** Original actor invocation generation retained across completion HITL resumes. */
+  agentEventInvocationGenerationCreatedAt?: number;
+  /** This generation must resume on a durable detached-action producer. */
+  agentEventDetachedActionProducerRequired?: boolean;
+  /** Durable retry payload captured before detached terminal evidence is written to Mongo. */
+  agentEventDetachedTerminalEvidence?: AgentEventDetachedTerminalEvidence;
   /** Trusted actor binding copied from the authenticated delivery envelope. */
   agentEventBindingId?: string;
   agentEventExpectedAction?: import('~/agents/triggers/types').AgentTriggerExpectedAction;
+  /** Versioned pointer to the canonical signed Conversation suspension. */
+  agentEventSuspension?: import('~/agents/triggers/types').AgentEventSuspensionProjection;
   /** Exact durable legacy-turn fence carried across a HITL pause/resume. */
   agentEventLegacyTurnToken?: string;
 
@@ -402,8 +417,13 @@ export type JobMetadataPatch = Partial<
     | 'agent_id'
     | 'isTemporary'
     | 'agentEventDeliveryKey'
+    | 'agentEventInvocationKey'
+    | 'agentEventInvocationGenerationCreatedAt'
+    | 'agentEventDetachedActionProducerRequired'
+    | 'agentEventDetachedTerminalEvidence'
     | 'agentEventBindingId'
     | 'agentEventExpectedAction'
+    | 'agentEventSuspension'
     | 'agentEventLegacyTurnToken'
     | 'scheduleId'
     | 'scheduledFor'

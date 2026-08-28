@@ -915,6 +915,26 @@ class GenerationJobManagerClass {
     this.terminalHostActionHandler = handler;
   }
 
+  /**
+   * Event-driven retry for a durable terminal host action whose external
+   * evidence arrived after the generation itself became terminal. The exact
+   * generation fence prevents a delayed callback from touching a replacement;
+   * the periodic recovery sweep remains the restart/replica fallback.
+   */
+  async retryTerminalHostAction(streamId: string, expectedCreatedAt: number): Promise<boolean> {
+    const job = await this.jobStore.getJob(streamId);
+    if (
+      job?.createdAt !== expectedCreatedAt ||
+      job.status === 'running' ||
+      job.status === 'requires_action' ||
+      job.providerDrained === false ||
+      job.terminalHostActionPending !== true
+    ) {
+      return false;
+    }
+    return this.runTerminalHostActionHandler(streamId, job);
+  }
+
   private get storeLabel(): GenerationJobStore {
     return this._isRedis ? 'redis' : 'memory';
   }
@@ -2605,6 +2625,14 @@ class GenerationJobManagerClass {
         agent_id: jobData.agent_id,
         // Surface whether the turn was temporary so a resume keeps it non-persisted.
         isTemporary: jobData.isTemporary,
+        agentEventDeliveryKey: jobData.agentEventDeliveryKey,
+        agentEventInvocationKey: jobData.agentEventInvocationKey,
+        agentEventInvocationGenerationCreatedAt: jobData.agentEventInvocationGenerationCreatedAt,
+        agentEventDetachedActionProducerRequired: jobData.agentEventDetachedActionProducerRequired,
+        agentEventDetachedTerminalEvidence: jobData.agentEventDetachedTerminalEvidence,
+        agentEventBindingId: jobData.agentEventBindingId,
+        agentEventExpectedAction: jobData.agentEventExpectedAction,
+        agentEventSuspension: jobData.agentEventSuspension,
         scheduleId: jobData.scheduleId,
         scheduledFor: jobData.scheduledFor,
         scheduleConfigRevision: jobData.scheduleConfigRevision,
@@ -2623,6 +2651,7 @@ class GenerationJobManagerClass {
         // legacy resume's execution rewrite invalidates a stale assertion.
         steerQuotesExecutionId: jobData.steerQuotesExecutionId,
         providerExecutionId: jobData.providerExecutionId,
+        providerExecutionStartedId: jobData.providerExecutionStartedId,
         providerDrained: jobData.providerDrained,
         steersClosed: jobData.steersClosed,
         idempotencyClientRequestId: jobData.idempotencyClientRequestId,
@@ -6692,6 +6721,34 @@ class GenerationJobManagerClass {
       }),
     };
     await this.jobStore.updateJob(streamId, updates, generationId);
+  }
+
+  /** Stages exact detached terminal evidence in the generation-owned job outbox
+   * and verifies the epoch-fenced write before the external result leaves memory. */
+  async persistAgentEventDetachedTerminalEvidence(
+    streamId: string,
+    expectedCreatedAt: number,
+    evidence: NonNullable<t.GenerationJobMetadata['agentEventDetachedTerminalEvidence']>,
+  ): Promise<boolean> {
+    await this.jobStore.updateJob(
+      streamId,
+      { agentEventDetachedTerminalEvidence: evidence },
+      expectedCreatedAt,
+    );
+    const persisted = await this.jobStore.getJob(streamId);
+    const actual = persisted?.agentEventDetachedTerminalEvidence;
+    return (
+      persisted?.createdAt === expectedCreatedAt &&
+      actual?.version === evidence.version &&
+      actual.deliveryKey === evidence.deliveryKey &&
+      actual.generationCreatedAt === evidence.generationCreatedAt &&
+      actual.taskId === evidence.taskId &&
+      actual.idempotencyKey === evidence.idempotencyKey &&
+      actual.status === evidence.status &&
+      actual.result === evidence.result &&
+      actual.error === evidence.error &&
+      actual.observedAt === evidence.observedAt
+    );
   }
 
   /** Records that one exact provider segment has completed every trailing write.
