@@ -52,10 +52,6 @@ describe('RedisJobStore Integration Tests', () => {
     process.env.REDIS_KEY_PREFIX = testPrefix;
     process.env.REDIS_PING_INTERVAL = '0';
     process.env.REDIS_RETRY_MAX_ATTEMPTS = '5';
-    // This suite exercises the receipt-safe current behavior. Rollout-specific
-    // v1 defaults and mixed-client downgrade paths live in protocolRollout.
-    process.env.GENERATION_PROTOCOL_VERSION = '2';
-
     jest.resetModules();
 
     // Import Redis client
@@ -1181,6 +1177,80 @@ describe('RedisJobStore Integration Tests', () => {
       await expect(store.getJob(streamId)).resolves.toMatchObject({ providerDrained: true });
 
       await store.clearTerminalHostAction(streamId, job.createdAt);
+      await store.destroy();
+    });
+
+    test('isolates detached Event Actor completion recovery from the legacy terminal lane', async () => {
+      if (!ioredisClient) {
+        return;
+      }
+
+      const { RedisJobStore } = await import('../implementations/RedisJobStore');
+      const store = new RedisJobStore(ioredisClient, { runningTtl: 60 });
+      await store.initialize();
+
+      const streamId = `terminal-detached-event-${Date.now()}`;
+      const invocationKey = 'event-invocation-original';
+      const completionDeliveryKey = 'event-completion-delivery';
+      const invocationGenerationCreatedAt = Date.now() - 1_000;
+      const job = await store.createJob(streamId, 'user-1', streamId, undefined, {
+        agentEventDeliveryKey: completionDeliveryKey,
+        agentEventInvocationKey: invocationKey,
+        agentEventInvocationGenerationCreatedAt: invocationGenerationCreatedAt,
+      });
+      const member = JSON.stringify([streamId, job.createdAt]);
+
+      await expect(
+        store.transitionStatus(streamId, {
+          from: 'running',
+          to: 'complete',
+          expectCreatedAt: job.createdAt,
+          patch: { completedAt: Date.now(), terminalHostActionPending: true },
+        }),
+      ).resolves.toBe(true);
+
+      // A pre-detached replica scans only this legacy key. The completion must
+      // never become visible there, because it would deserialize only the
+      // completion delivery and lose the original invocation identity.
+      await expect(ioredisClient.sismember('stream:terminal_host_action', member)).resolves.toBe(0);
+      await expect(ioredisClient.hgetall(`stream:{${streamId}}:job`)).resolves.toMatchObject({
+        status: 'detached_terminal_pending_v1',
+        detachedAgentEventTerminalStatus: 'complete',
+        detachedAgentEventTerminalHostActionPending: '1',
+      });
+      await expect(store.getJob(streamId)).resolves.toMatchObject({
+        status: 'complete',
+        terminalHostActionPending: true,
+      });
+      await expect(store.getTerminalHostActionJobs()).resolves.not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ streamId })]),
+      );
+      await expect(store.getDetachedAgentEventTerminalHostActionJobs()).resolves.toEqual([
+        expect.objectContaining({
+          streamId,
+          agentEventDeliveryKey: completionDeliveryKey,
+          agentEventInvocationKey: invocationKey,
+          agentEventInvocationGenerationCreatedAt: invocationGenerationCreatedAt,
+        }),
+      ]);
+
+      // The current creator reports an ordinary predecessor conflict, while a
+      // pre-detached creator rejects the raw versioned status as corrupt. Both
+      // outcomes fence replacement even when its caller permits active replacement.
+      await expect(store.createJob(streamId, 'user-1', streamId)).rejects.toMatchObject({
+        name: 'JobPredecessorMismatchError',
+      });
+
+      await store.clearTerminalHostAction(streamId, job.createdAt);
+      await expect(ioredisClient.hgetall(`stream:{${streamId}}:job`)).resolves.toMatchObject({
+        status: 'complete',
+      });
+      await expect(
+        ioredisClient.hget(`stream:{${streamId}}:job`, 'detachedAgentEventTerminalStatus'),
+      ).resolves.toBeNull();
+      await expect(
+        ioredisClient.sismember('stream:agent_event_detached:terminal_host_action:v1', member),
+      ).resolves.toBe(0);
       await store.destroy();
     });
 
