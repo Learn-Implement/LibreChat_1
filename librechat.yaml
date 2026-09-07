@@ -81,3 +81,6 @@ endpoints:
       titleConvo: true
       titleModel: "qwen-max"          # <-- set as default Qwen model
       modelDisplayLabel: "Qwen"
+
+assistants:
+  timeoutMs: 900000   # 15 minutes (900,000 ms)
