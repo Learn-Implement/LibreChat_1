@@ -26,6 +26,7 @@ services:
       SEARCH: ${SEARCH}
       MEILI_HOST: ${MEILI_HOST}
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      HTTP_REQUEST_TIMEOUT_MS: ${HTTP_REQUEST_TIMEOUT_MS}
 
   admin-panel:
     environment:
