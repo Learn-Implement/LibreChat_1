@@ -17,10 +17,10 @@ fileConfig:
       - "application/pdf"
   endpoints:
     default:
-      fileLimit: 10
+      fileLimit: 20
       fileSizeLimit: 20
     agents:
-      fileLimit: 10
+      fileLimit: 20
       fileSizeLimit: 25
       supportedMimeTypes:
         - "application/pdf"
