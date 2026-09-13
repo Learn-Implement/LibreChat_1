@@ -234,7 +234,7 @@ async function _handleRun({ openai, run_id, thread_id }) {
     thread_id,
     runManager,
     pollIntervalMs: 2000,
-    timeout = 60000 * 15,   // 15 minutes
+    timeout: 60000 * 15,   // 15 minutes
   });
   const actions = [];
   if (run.required_action) {
