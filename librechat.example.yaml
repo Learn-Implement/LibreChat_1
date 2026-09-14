@@ -344,6 +344,12 @@ registration:
   socialLogins: ['github', 'google', 'discord', 'openid', 'facebook', 'apple', 'saml']
   # allowedDomains:
   # - "gmail.com"
+  # How long a started social login may take to return from the provider (ms, default 600000)
+  # oauthStateTtlMs: 600000
+  # OpenID discovery retries when the provider is unreachable (overrides OPENID_DISCOVERY_RETRY_* env vars)
+  # openidDiscovery:
+  #   startupAttempts: 1   # attempts before startup continues; 0 = background retries only
+  #   retryDelayMs: 5000   # delay between startup and background attempts
 
 # Example Balance settings
 # balance:
@@ -353,6 +359,7 @@ registration:
 #   refillIntervalValue: 30
 #   refillIntervalUnit: 'days'
 #   refillAmount: 10000
+#   reservationTtlMs: 1800000  # How long an in-flight request's reserved credits count if never released
 
 # Example Transactions settings
 # Controls whether to save transaction records to the database
