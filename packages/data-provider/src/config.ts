@@ -31,8 +31,8 @@ import { CODE_ENVIRONMENT_DECISION_VERSION, CODE_ENVIRONMENT_MOVE_VERSION } from
 import { ComponentTypes, SettingTypes, OptionTypes } from './generate';
 import { STATEFUL_CODE_ENVIRONMENTS } from './stateful-code';
 import { specsConfigSchema, TSpecsConfig } from './models';
-import { isActionTool } from './types/assistants';
 import { fileConfigSchema } from './file-config';
+import { isActionTool } from './types/tools';
 import { apiBaseUrl } from './api-endpoints';
 import { FileSources } from './types/files';
 import { MCPServersSchema } from './mcp';
@@ -1211,13 +1211,28 @@ export type CodeWorkerEnrollmentPolicy = NonNullable<
   NonNullable<z.infer<typeof agentsEndpointSchema>['statefulCodeSessions']>['principalWorkers']
 >;
 
+export const DEFAULT_MAX_PROVIDER_ERROR_CHARS = 2000;
+
 export const agentsEndpointSchema = baseEndpointSchema
   .omit({ baseURL: true })
   .merge(
     z.object({
       /* agents specific */
+      /** Maximum provider error characters retained in unprotected terminal failures. */
+      maxProviderErrorChars: z
+        .number()
+        .int()
+        .min(0)
+        .max(1_000_000)
+        .default(DEFAULT_MAX_PROVIDER_ERROR_CHARS),
       recursionLimit: z.number().optional(),
       disableBuilder: z.boolean().optional().default(false),
+      /** Optional workspace guidance acquisition budget, separate from command execution. */
+      repositoryInstructions: z
+        .object({
+          timeoutMs: z.number().int().min(100).max(30_000).optional().default(2000),
+        })
+        .optional(),
       maxRecursionLimit: z.number().optional(),
       /** Max cumulative bytes a single streamed tool call's arguments may reach before the run
        * aborts. Defaults to 64 KiB in the agents SDK; `0` disables the guard. */
@@ -2983,6 +2998,12 @@ export const configSchema = z.object({
       message: 'At least one `endpoints` field must be provided.',
     })
     .optional(),
+  /** Serve the OpenAPI spec and docs for the public Agents API. Off by default. */
+  openapi: z
+    .object({
+      enabled: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 /**
@@ -4270,6 +4291,8 @@ export enum LocalStorageKeys {
   PIN_WEB_SEARCH_ = 'PIN_WEB_SEARCH_',
   /** Pin state for Code Interpreter per conversation ID */
   PIN_CODE_INTERPRETER_ = 'PIN_CODE_INTERPRETER_',
+  /** Key for the last selected code approval mode */
+  LAST_CODE_APPROVAL_MODE = 'lastCodeApprovalMode',
 }
 
 export enum ForkOptions {
