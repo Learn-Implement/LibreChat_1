@@ -3,6 +3,12 @@ services:
     environment:
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
 
+   redis:
+     image: redis:7-alpine
+     restart: unless-stopped
+     volumes:
+       - redis_data:/data
+
   api:
     volumes:
       - ./librechat.yaml:/app/librechat.yaml
@@ -42,3 +48,6 @@ services:
       OPENAI_BASE_URL: ${OPENAI_BASE_URL}
       OCR_API_KEY: ${OCR_API_KEY}
       OCR_PROVIDER: ${OCR_PROVIDER}
+
+volumes:
+  redis_data:
