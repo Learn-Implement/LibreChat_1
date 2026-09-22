@@ -38,7 +38,7 @@ endpoints:
       models:
         default:
           - deepseek-v4-pro
-          - deepseek-v4-flash
+          - deepseek-flash
         fetch: false
       titleConvo: true
       titleModel: "deepseek-v4-pro"
