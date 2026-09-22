@@ -3,11 +3,11 @@ services:
     environment:
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
 
-   redis:
-     image: redis:7-alpine
-     restart: unless-stopped
-     volumes:
-       - redis_data:/data
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
 
   api:
     volumes:
@@ -34,6 +34,9 @@ services:
       MEILI_HOST: ${MEILI_HOST}
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
       HTTP_REQUEST_TIMEOUT_MS: ${HTTP_REQUEST_TIMEOUT_MS}
+      USE_REDIS: ${USE_REDIS}
+      REDIS_URI: ${REDIS_URI}
+      USE_REDIS_STREAMS: ${USE_REDIS_STREAMS}
 
   admin-panel:
     environment:
