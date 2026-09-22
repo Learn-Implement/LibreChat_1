@@ -37,7 +37,6 @@ services:
       USE_REDIS: ${USE_REDIS}
       REDIS_URI: ${REDIS_URI}
       USE_REDIS_STREAMS: ${USE_REDIS_STREAMS}
-      NGINX_CLIENT_MAX_BODY_SIZE: 50M
 
   admin-panel:
     environment:
