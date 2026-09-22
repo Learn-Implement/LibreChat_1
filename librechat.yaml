@@ -9,12 +9,6 @@ webSearch:
   tavilyApiKey: "${TAVILY_API_KEY}"
 
 fileConfig:
-  ocr:
-    provider: "mistral_ocr"
-    supportedMimeTypes:
-      - "image/png"
-      - "image/jpeg"
-      - "application/pdf"
   endpoints:
     default:
       fileLimit: 20
@@ -29,11 +23,13 @@ fileConfig:
         - "text/markdown"
         - "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         - "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-   
+        - "image/png"
+        - "image/jpeg"
+
 endpoints:
   custom:
     - name: "DeepSeek"
-      apiKey: "${DEEPSEEK_API_KEY}"   # Read from environment variable
+      apiKey: "${DEEPSEEK_API_KEY}"
       baseURL: "https://api.deepseek.com/v1"
       models:
         default:
@@ -79,5 +75,5 @@ endpoints:
           - qwen-omni-turbo
         fetch: false
       titleConvo: true
-      titleModel: "qwen-max"          # <-- set as default Qwen model
+      titleModel: "qwen-max"
       modelDisplayLabel: "Qwen"
