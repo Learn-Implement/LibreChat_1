@@ -10,7 +10,7 @@ services:
       - redis_data:/data
 
   api:
-    image: ghcr.io/danny-avila/librechat:v0.8.8-rc3
+    image: ghcr.io/danny-avila/librechat:v0.8.8-rc4
     volumes:
       - ./librechat.yaml:/app/librechat.yaml
 
