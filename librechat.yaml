@@ -9,6 +9,12 @@ webSearch:
   tavilyApiKey: "${TAVILY_API_KEY}"
 
 fileConfig:
+  ocr:
+    provider: "mistral_ocr"
+      supportedMimeTypes:
+        - "image/png"
+        - "image/jpeg"
+        - "application/pdf"
   endpoints:
     default:
       fileLimit: 20
