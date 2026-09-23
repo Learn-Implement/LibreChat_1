@@ -12,9 +12,9 @@ fileConfig:
   ocr:
     provider: "mistral_ocr"
     supportedMimeTypes:
-        - "image/png"
-        - "image/jpeg"
-        - "application/pdf"
+      - "image/png"
+      - "image/jpeg"
+      - "application/pdf"
   endpoints:
     default:
       fileLimit: 20
