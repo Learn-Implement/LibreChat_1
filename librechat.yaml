@@ -25,6 +25,9 @@ fileConfig:
         - "application/vnd.openxmlformats-officedocument.presentationml.presentation"
         - "image/png"
         - "image/jpeg"
+      DeepSeek:
+        fileStrategy: "text"
+        fallbackToText: true
 
 endpoints:
   custom:
