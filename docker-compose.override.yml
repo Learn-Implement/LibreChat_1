@@ -12,7 +12,7 @@ services:
   api:
     volumes:
       - ./librechat.yaml:/app/librechat.yaml
-      - ./api/server/services/Runs/handle.js:/app/api/server/services/Runs/handle.js
+
     environment:
       MONGO_URI: ${MONGO_URI}
       JWT_SECRET: ${JWT_SECRET}
