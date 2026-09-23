@@ -11,7 +11,7 @@ webSearch:
 fileConfig:
   ocr:
     provider: "mistral_ocr"
-      supportedMimeTypes:
+    supportedMimeTypes:
         - "image/png"
         - "image/jpeg"
         - "application/pdf"
