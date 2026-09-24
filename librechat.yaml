@@ -9,19 +9,17 @@ webSearch:
   tavilyApiKey: "${TAVILY_API_KEY}"
 
 fileConfig:
-  ocr:
-    provider: "mistral_ocr"
-    supportedMimeTypes:
-      - "image/png"
-      - "image/jpeg"
-      - "application/pdf"
   endpoints:
     default:
-      fileLimit: 50
-      fileSizeLimit: 20
+      fileLimit: 100
+      fileSizeLimit: 50
+      fileStrategy: "text"
+      fallbackToText: true
     agents:
-      fileLimit: 50
-      fileSizeLimit: 25
+      fileLimit: 100
+      fileSizeLimit: 50
+      fileStrategy: "text"
+      fallbackToText: true
       supportedMimeTypes:
         - "application/pdf"
         - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -31,6 +29,9 @@ fileConfig:
         - "application/vnd.openxmlformats-officedocument.presentationml.presentation"
         - "image/png"
         - "image/jpeg"
+    DeepSeek:
+      fileStrategy: "text"
+      fallbackToText: true
 
 endpoints:
   custom:
