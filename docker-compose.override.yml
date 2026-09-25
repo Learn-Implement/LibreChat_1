@@ -8,16 +8,16 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
+  
+  api:
+    image: ghcr.io/danny-avila/librechat:v0.8.8-rc4
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
-  api:
-    image: ghcr.io/danny-avila/librechat:v0.8.8-rc4
-    volumes:
-      - ./librechat.yaml:/app/librechat.yaml
 
     environment:
       MONGO_URI: ${MONGO_URI}
