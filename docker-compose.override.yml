@@ -11,8 +11,10 @@ services:
   
   api:
     image: ghcr.io/danny-avila/librechat:v0.8.8-rc4
+    
     volumes:
       - ./librechat.yaml:/app/librechat.yaml
+    
     logging:
       driver: "json-file"
       options:
