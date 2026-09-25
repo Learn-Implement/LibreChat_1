@@ -38,8 +38,6 @@ services:
       USE_REDIS: ${USE_REDIS}
       REDIS_URI: ${REDIS_URI}
       USE_REDIS_STREAMS: ${USE_REDIS_STREAMS}
-      DEBUG_LOGS: "true"
-      NODE_DEBUG: "undici,http,net"
 
   admin-panel:
     environment:
