@@ -11,16 +11,13 @@ services:
   
   api:
     image: ghcr.io/danny-avila/librechat:v0.8.8-rc4
-    
     volumes:
       - ./librechat.yaml:/app/librechat.yaml
-    
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
     environment:
       MONGO_URI: ${MONGO_URI}
       JWT_SECRET: ${JWT_SECRET}
@@ -52,6 +49,11 @@ services:
 
   rag_api:
     image: registry.librechat.ai/danny-avila/librechat-rag-api-dev-lite:latest
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       RAG_OPENAI_API_KEY: ${RAG_OPENAI_API_KEY}
       EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER}
