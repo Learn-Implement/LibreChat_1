@@ -1578,6 +1578,7 @@ async function loadToolDefinitionsWrapper({
       enabled: codeExecutionEnabled,
       context: resolvedCodeExecutionContext,
       principalId: JSON.stringify([getTenantId(), req.user.id]),
+      codeApiMaxRetryWaitMs: req.config?.endpoints?.agents?.codeApiMaxRetryWaitMs,
       getAuthHeaders: (workerId) => getCodeApiAuthHeaders(req, workerId),
     }),
   };
@@ -1781,6 +1782,7 @@ async function loadAgentTools({
     enabled: codeExecutionEnabled,
     context: codeExecutionContext,
     principalId: JSON.stringify([getTenantId(), req.user.id]),
+    codeApiMaxRetryWaitMs: req.config?.endpoints?.agents?.codeApiMaxRetryWaitMs,
     getAuthHeaders: (workerId) => getCodeApiAuthHeaders(req, workerId),
   });
   const { loadedTools, toolContextMap, dynamicToolContextMap, primedCodeFiles } = await loadTools({
@@ -2306,6 +2308,7 @@ async function loadToolsForExecution({
               baseUrl: codeExecutionContext.baseUrl,
               workspaceId: codeExecutionContext.codeWorkspace.workspaceId,
               workspaceInstanceId: codeExecutionContext.codeWorkspace.workspaceInstanceId,
+              linkedWorktrees: codeExecutionContext.codeWorkspace.linkedWorktrees,
               environment: codeExecutionContext.codeWorkspace.environment,
               gitIdentity: agent?.git_identity,
               maxTimeoutMs: resolveAttachedWorkspaceCommandTimeoutMax(
@@ -2315,9 +2318,12 @@ async function loadToolsForExecution({
               maxQueueWaitMs: resolveAttachedWorkspaceQueueWaitMs(
                 codeExecutionContext.codeEnvironmentConfigSchema,
               ),
+              codeApiMaxRetryWaitMs: req.config?.endpoints?.agents?.codeApiMaxRetryWaitMs,
               maxRequestTimeoutMs: resolveAttachedWorkspaceRequestTimeoutMs(
                 codeExecutionContext.codeEnvironmentConfigSchema,
               ),
+              minCommandAdmissionMs:
+                codeExecutionContext.codeEnvironmentConfigSchema?.limits?.minCommandAdmissionMs,
             })
           : createBashExecutionTool({
               authHeaders,

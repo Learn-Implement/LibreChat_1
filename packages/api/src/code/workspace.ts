@@ -1,9 +1,11 @@
 import {
   CODE_ENVIRONMENT_ADMISSION_MAX_MS,
+  CODE_ENVIRONMENT_COMMAND_ADMISSION_DEFAULT_MS,
   CODE_ENVIRONMENT_QUEUE_WAIT_DEFAULT_MS,
   CODE_ENVIRONMENT_REQUEST_TIMEOUT_HARD_MAX_MS,
 } from 'librechat-data-provider';
 import type { CodeBridgeFetch } from './bridge';
+import { CODE_API_RATE_LIMIT_WAIT_DEFAULT_MS } from './limits';
 
 const WORKSPACE_TOOL_TIMEOUT_MS = 30_000;
 const MAX_PATH_LENGTH = 4096;
@@ -30,6 +32,24 @@ const WORKSPACE_QUEUE_WAIT_HEADER = 'X-LibreChat-Workspace-Queue-Wait-Ms';
 export const WORKSPACE_QUEUE_MAX_WAIT_MS: number = CODE_ENVIRONMENT_QUEUE_WAIT_DEFAULT_MS;
 const WORKSPACE_QUEUE_RETRY_DELAY_MS = 1_000;
 const WORKSPACE_COMMAND_SETTLEMENT_GRACE_MS = 5_000;
+
+/**
+ * Longest command timeout a total HTTP budget can carry: the budget minus settlement and delivery
+ * grace and a minimum admission allowance. A command whose reserve reaches the budget is refused
+ * before dispatch, so a larger ceiling would only advertise timeouts that can never start.
+ */
+export function fitWorkspaceCommandTimeoutToBudget(
+  maxRequestTimeoutMs: number,
+  minCommandAdmissionMs: number = CODE_ENVIRONMENT_COMMAND_ADMISSION_DEFAULT_MS,
+): number {
+  return Math.max(
+    1,
+    maxRequestTimeoutMs -
+      WORKSPACE_COMMAND_SETTLEMENT_GRACE_MS -
+      WORKSPACE_COMMAND_TRANSPORT_GRACE_MS -
+      minCommandAdmissionMs,
+  );
+}
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const MAX_ERROR_BODY_BYTES = 4096;
 const ERROR_BODY_TIMEOUT_MS = 1000;
@@ -274,12 +294,17 @@ export class WorkspaceToolHttpError extends Error {
     public readonly upstreamBodyTruncated = false,
   ) {
     let message = `Workspace tool request ${reason}`;
-    if (
-      reason === 'rejected' &&
-      isWorkspaceAdmissionTimeout(upstreamStatus, upstreamBody, upstreamBodyTruncated)
-    ) {
+    const admissionRejection =
+      reason === 'rejected'
+        ? getWorkspaceAdmissionRejection(upstreamStatus, upstreamBody, upstreamBodyTruncated)
+        : undefined;
+    if (admissionRejection === 'queue_timeout') {
       message =
         'Workspace capacity was unavailable before the queue deadline. The operation was not started. Wait for active work to finish or select an independent workspace on a machine with available capacity.';
+    }
+    if (admissionRejection === 'rate_limited') {
+      message =
+        'The Code API request rate limit was reached. The operation was not started. Wait a few seconds before retrying, or make fewer concurrent workspace calls.';
     }
     if (reason === 'insufficient_time') {
       message =
@@ -295,15 +320,38 @@ export class WorkspaceToolHttpError extends Error {
   }
 }
 
-function isWorkspaceAdmissionTimeout(status?: number, body?: string, truncated = false): boolean {
-  if (status !== 503 || !body || truncated || body.length > MAX_ERROR_BODY_BYTES) {
-    return false;
+type WorkspaceAdmissionRejection = 'queue_timeout' | 'rate_limited';
+
+/**
+ * Rejections the Code API issues before an operation is assigned, so retrying cannot repeat a
+ * mutation: a queue deadline that expired before admission, or its rate limiter, which runs as
+ * middleware ahead of the workspace router. Anything else, including an unparsable body under
+ * either status, keeps an unknown outcome and is never retried.
+ */
+function getWorkspaceAdmissionRejection(
+  status?: number,
+  body?: string,
+  truncated = false,
+): WorkspaceAdmissionRejection | undefined {
+  if (
+    (status !== 503 && status !== 429) ||
+    !body ||
+    truncated ||
+    body.length > MAX_ERROR_BODY_BYTES
+  ) {
+    return undefined;
   }
   try {
-    const parsed: { code?: string } | null = JSON.parse(body);
-    return parsed?.code === 'WORKSPACE_QUEUE_TIMEOUT';
+    const parsed: { code?: string; error?: string } | null = JSON.parse(body);
+    if (status === 503 && parsed?.code === 'WORKSPACE_QUEUE_TIMEOUT') {
+      return 'queue_timeout';
+    }
+    if (status === 429 && parsed?.error === 'rate_limited') {
+      return 'rate_limited';
+    }
+    return undefined;
   } catch {
-    return false;
+    return undefined;
   }
 }
 
@@ -326,9 +374,25 @@ function waitForWorkspaceAdmission(delayMs: number, signal?: AbortSignal): Promi
   });
 }
 
-function workspaceAdmissionRetryDelay(value: string | null): number {
-  if (value == null || !/^\d+$/.test(value)) return WORKSPACE_QUEUE_RETRY_DELAY_MS;
-  return Math.max(100, Math.min(Number(value) * 1_000, WORKSPACE_QUEUE_TIMEOUT_MS));
+function workspaceAdmissionRetryDelay(value: string | null, rateLimitBody?: string): number {
+  if (value != null && /^\d+$/.test(value)) {
+    const seconds = Number(value);
+    if (Number.isFinite(seconds)) {
+      return Math.max(100, Math.min(seconds * 1_000, WORKSPACE_QUEUE_TIMEOUT_MS));
+    }
+  }
+  if (rateLimitBody) {
+    try {
+      const parsed: { retry_after_seconds?: number } | null = JSON.parse(rateLimitBody);
+      const seconds = parsed?.retry_after_seconds;
+      if (typeof seconds === 'number' && Number.isFinite(seconds) && seconds >= 0) {
+        return Math.max(100, Math.min(seconds * 1_000, WORKSPACE_QUEUE_TIMEOUT_MS));
+      }
+    } catch {
+      // Fall back when the delay hint is unusable.
+    }
+  }
+  return WORKSPACE_QUEUE_RETRY_DELAY_MS;
 }
 
 /** Keep a received HTTP status even if reading its diagnostic body fails or stalls. */
@@ -794,6 +858,142 @@ function getWorkspaceAuthHeaders(
   });
 }
 
+/** Linked worktrees live at `.worktrees/<name>` beneath a registered checkout. */
+const LINKED_WORKTREE_DIRECTORY = '.worktrees/';
+/** Mirrors Code API's single-segment worktree name rule. */
+const LINKED_WORKTREE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
+export type LinkedWorktreeRequest = WorkspaceToolRequest & { worktree: string };
+
+interface LinkedWorktreePath {
+  worktree: string;
+  /** Path relative to the worktree root; empty for the worktree root itself. */
+  rest: string;
+}
+
+function splitLinkedWorktreePath(path: string | undefined): LinkedWorktreePath | undefined {
+  if (path == null || !path.startsWith(LINKED_WORKTREE_DIRECTORY)) return undefined;
+  const remainder = path.slice(LINKED_WORKTREE_DIRECTORY.length);
+  const slash = remainder.indexOf('/');
+  const worktree = slash === -1 ? remainder : remainder.slice(0, slash);
+  if (!LINKED_WORKTREE_NAME_PATTERN.test(worktree) || worktree.endsWith('.lock')) {
+    return undefined;
+  }
+  return { worktree, rest: slash === -1 ? '' : remainder.slice(slash + 1) };
+}
+
+function prefixed(worktree: string, path: string): string {
+  return `${LINKED_WORKTREE_DIRECTORY}${worktree}/${path}`;
+}
+
+/**
+ * Route a request that targets `.worktrees/<name>/…` into that worktree's own
+ * scheduling lane, so work in sibling worktrees runs concurrently. Only
+ * structural targets are routed: a file path, a search or listing scope, or a
+ * command `cwd`. Anything else, including a command that `cd`s into a worktree
+ * from the root, stays root-scoped because its reach cannot be bounded.
+ */
+export function toLinkedWorktreeRequest(
+  request: WorkspaceToolRequest,
+): { request: LinkedWorktreeRequest; worktree: string } | undefined {
+  if (request.workspaceInstanceId != null) return undefined;
+  switch (request.operation) {
+    case 'read_file':
+    case 'write_file':
+    case 'edit_file':
+    case 'preview_edit': {
+      if (request.operation === 'read_file' && request.instructionSha256 != null) return undefined;
+      const target = splitLinkedWorktreePath(request.path);
+      if (target == null || target.rest === '') return undefined;
+      return {
+        worktree: target.worktree,
+        request: { ...request, path: target.rest, worktree: target.worktree },
+      };
+    }
+    case 'search_text': {
+      const target = splitLinkedWorktreePath(request.path);
+      if (target == null) return undefined;
+      const { path: _path, ...rest } = request;
+      return {
+        worktree: target.worktree,
+        request: {
+          ...rest,
+          ...(target.rest === '' ? {} : { path: target.rest }),
+          worktree: target.worktree,
+        },
+      };
+    }
+    case 'list_files': {
+      const target = splitLinkedWorktreePath(request.path);
+      if (target == null) return undefined;
+      const after =
+        request.afterPath == null ? undefined : splitLinkedWorktreePath(request.afterPath);
+      if (
+        request.afterPath != null &&
+        (after == null || after.worktree !== target.worktree || after.rest === '')
+      ) {
+        return undefined;
+      }
+      const { path: _path, afterPath: _afterPath, ...rest } = request;
+      return {
+        worktree: target.worktree,
+        request: {
+          ...rest,
+          ...(target.rest === '' ? {} : { path: target.rest }),
+          ...(after == null ? {} : { afterPath: after.rest }),
+          worktree: target.worktree,
+        },
+      };
+    }
+    case 'execute_command': {
+      if (request.environmentAction != null) return undefined;
+      const target = splitLinkedWorktreePath(request.cwd);
+      if (target == null) return undefined;
+      const { cwd: _cwd, ...rest } = request;
+      return {
+        worktree: target.worktree,
+        request: {
+          ...rest,
+          ...(target.rest === '' ? {} : { cwd: target.rest }),
+          worktree: target.worktree,
+        },
+      };
+    }
+  }
+}
+
+/** Restore the `.worktrees/<name>/` prefix on every path a lane result reports. */
+export function fromLinkedWorktreeResult(
+  result: WorkspaceToolResult,
+  worktree: string,
+): WorkspaceToolResult {
+  switch (result.operation) {
+    case 'read_file':
+    case 'write_file':
+    case 'edit_file':
+    case 'preview_edit':
+      return { ...result, path: prefixed(worktree, result.path) };
+    case 'search_text':
+      return {
+        ...result,
+        matches: result.matches.map((match) => ({
+          ...match,
+          path: prefixed(worktree, match.path),
+        })),
+      };
+    case 'list_files':
+      return {
+        ...result,
+        paths: result.paths.map((path) => prefixed(worktree, path)),
+        ...(result.nextAfterPath == null
+          ? {}
+          : { nextAfterPath: prefixed(worktree, result.nextAfterPath) }),
+      };
+    case 'execute_command':
+      return result;
+  }
+}
+
 export async function executeWorkspaceTool({
   baseURL,
   authHeaders,
@@ -801,8 +1001,10 @@ export async function executeWorkspaceTool({
   signal,
   fetchImpl = fetch,
   maxQueueWaitMs = WORKSPACE_QUEUE_MAX_WAIT_MS,
+  codeApiMaxRetryWaitMs = CODE_API_RATE_LIMIT_WAIT_DEFAULT_MS,
   maxRequestTimeoutMs,
   deadlineAtMs,
+  linkedWorktrees = false,
 }: {
   baseURL: string;
   authHeaders: WorkspaceToolAuthHeaders;
@@ -810,16 +1012,23 @@ export async function executeWorkspaceTool({
   signal?: AbortSignal;
   fetchImpl?: CodeBridgeFetch;
   maxQueueWaitMs?: number;
+  /** Maximum time waiting for Code API rate-limit admission, independent of queue retries. */
+  codeApiMaxRetryWaitMs?: number;
   /** End-to-end HTTP budget for this call. Omission keeps legacy per-attempt timeouts. */
   maxRequestTimeoutMs?: number;
   /** Optional earlier caller deadline; a signal alone has no remaining-time value. */
   deadlineAtMs?: number;
+  /** The worker runs each `.worktrees/<name>` in its own lane; route matching requests there. */
+  linkedWorktrees?: boolean;
 }): Promise<WorkspaceToolResult> {
   if (
     !isValidRequest(request) ||
     !Number.isSafeInteger(maxQueueWaitMs) ||
     maxQueueWaitMs < 0 ||
     maxQueueWaitMs > WORKSPACE_QUEUE_MAX_WAIT_MS ||
+    !Number.isSafeInteger(codeApiMaxRetryWaitMs) ||
+    codeApiMaxRetryWaitMs < 0 ||
+    codeApiMaxRetryWaitMs > 300_000 ||
     (maxRequestTimeoutMs !== undefined &&
       (!Number.isSafeInteger(maxRequestTimeoutMs) ||
         maxRequestTimeoutMs < 1 ||
@@ -828,17 +1037,21 @@ export async function executeWorkspaceTool({
   ) {
     throw new WorkspaceToolHttpError('invalid');
   }
-  const executionBudgetMs = getWorkspaceExecutionBudgetMs(request);
+  const lane = linkedWorktrees === true ? toLinkedWorktreeRequest(request) : undefined;
+  const wireRequest: WorkspaceToolRequest = lane?.request ?? request;
+  const executionBudgetMs = getWorkspaceExecutionBudgetMs(wireRequest);
   const completionReserveMs = executionBudgetMs + WORKSPACE_COMMAND_TRANSPORT_GRACE_MS;
-  const perAttemptTimeoutMs = maxRequestTimeoutMs ?? getWorkspaceToolTimeoutMs(request);
+  const perAttemptTimeoutMs = maxRequestTimeoutMs ?? getWorkspaceToolTimeoutMs(wireRequest);
   const callerDeadlineAt = Math.min(
     deadlineAtMs ?? Infinity,
     maxRequestTimeoutMs == null ? Infinity : Date.now() + maxRequestTimeoutMs,
   );
   const queueDeadlineAt = Date.now() + maxQueueWaitMs;
-  const retryDeadlineAt = Math.min(queueDeadlineAt, callerDeadlineAt - completionReserveMs);
-  const body = JSON.stringify(request);
+  const callerRetryDeadlineAt = callerDeadlineAt - completionReserveMs;
+  const body = JSON.stringify(wireRequest);
   let lastAdmissionRejection: WorkspaceToolHttpError | undefined;
+  let lastRetryDeadlineAt = Infinity;
+  let rateLimitWaitedMs = 0;
   while (true) {
     try {
       signal?.throwIfAborted();
@@ -871,7 +1084,7 @@ export async function executeWorkspaceTool({
       if (timeoutSignal.aborted) {
         throw lastAdmissionRejection ?? new WorkspaceToolHttpError('insufficient_time');
       }
-      if (lastAdmissionRejection && Date.now() >= retryDeadlineAt) {
+      if (lastAdmissionRejection && Date.now() >= lastRetryDeadlineAt) {
         throw lastAdmissionRejection;
       }
       const remainingMs = Math.min(
@@ -903,20 +1116,35 @@ export async function executeWorkspaceTool({
         const { body, truncated } = await readErrorBody(response, requestSignal);
         signal?.throwIfAborted();
         const rejection = new WorkspaceToolHttpError('rejected', response.status, body, truncated);
+        const admission = getWorkspaceAdmissionRejection(response.status, body, truncated);
+        if (admission == null) throw rejection;
+        const retryDeadlineAt = Math.min(
+          admission === 'queue_timeout' ? queueDeadlineAt : Infinity,
+          callerRetryDeadlineAt,
+        );
+        if (Date.now() >= retryDeadlineAt) throw rejection;
+        const retryAfterMs = workspaceAdmissionRetryDelay(
+          response.headers.get('Retry-After'),
+          admission === 'rate_limited' ? body : undefined,
+        );
         if (
-          !isWorkspaceAdmissionTimeout(response.status, body, truncated) ||
-          Date.now() >= queueDeadlineAt
+          admission === 'rate_limited' &&
+          retryAfterMs > codeApiMaxRetryWaitMs - rateLimitWaitedMs
         ) {
           throw rejection;
         }
-        const delayMs = Math.min(
-          workspaceAdmissionRetryDelay(response.headers.get('Retry-After')),
-          retryDeadlineAt - Date.now(),
-        );
+        const delayMs = Math.min(retryAfterMs, retryDeadlineAt - Date.now());
         lastAdmissionRejection = rejection;
+        lastRetryDeadlineAt = retryDeadlineAt;
         if (delayMs <= 0) throw rejection;
+        const waitStartedAt = Date.now();
         await waitForWorkspaceAdmission(delayMs, signal);
-        /** A clamped delay can land exactly on either deadline. Never open
+        if (admission === 'rate_limited') {
+          /** A timer may run late. Charge the actual wait, but honor the retry that
+           * was authorized before waiting; another 429 cannot exceed the balance. */
+          rateLimitWaitedMs += Math.max(retryAfterMs, Date.now() - waitStartedAt);
+        }
+        /** A clamped delay can land exactly on this admission's retry deadline. Never open
          * another admission window without the full execution reserve. */
         if (Date.now() >= retryDeadlineAt) {
           throw rejection;
@@ -924,10 +1152,10 @@ export async function executeWorkspaceTool({
         continue;
       }
       const result = await readBoundedJson(response, requestSignal);
-      if (!isValidResult(request, result)) {
+      if (!isValidResult(wireRequest, result)) {
         throw new WorkspaceToolHttpError('invalid');
       }
-      return result;
+      return lane ? fromLinkedWorktreeResult(result, lane.worktree) : result;
     } catch (error) {
       if (error instanceof WorkspaceToolHttpError) throw error;
       if (

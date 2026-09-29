@@ -258,6 +258,8 @@ type ContentPartsProps = {
   hideAttachments?: boolean;
   /** Internal signal that this segment renders inside a completed phase card. */
   withinActivityPhase?: boolean;
+  /** The parent phase owns the failure pill, including while it is live. */
+  parentPhaseOwnsFailurePill?: boolean;
   /** Internal signal that a phase card already carries this message's
    *  streaming cursor. A solitary empty provider slot looks like the initial
    *  waiting state from inside its own segment, so without this it renders a
@@ -309,6 +311,7 @@ const ContentPartsBody = memo(function ContentPartsBody({
   foldLiveActivity = true,
   nestedActivityPhase = false,
   withinActivityPhase = false,
+  parentPhaseOwnsFailurePill = false,
   cursorOwnedElsewhere = false,
   hideAttachments = false,
   workspaceAttachmentsPartitioned = false,
@@ -871,6 +874,7 @@ const ContentPartsBody = memo(function ContentPartsBody({
       withinPhase = false,
       ownsCursor = false,
       hoisted = false,
+      underPhase = false,
     ) => {
       return (
         <ContentPartsBody
@@ -889,6 +893,7 @@ const ContentPartsBody = memo(function ContentPartsBody({
           nestedActivityPhase
           showThinking={showThinking}
           withinActivityPhase={withinPhase}
+          parentPhaseOwnsFailurePill={underPhase}
           cursorOwnedElsewhere={cursorOwnedByCard}
           hideAttachments={hoisted}
           workspaceAttachmentsPartitioned
@@ -1062,6 +1067,7 @@ const ContentPartsBody = memo(function ContentPartsBody({
                   !live,
                   ownsCursor,
                   true,
+                  true,
                 )}
               </ActivityPhaseGroup>
             );
@@ -1177,6 +1183,7 @@ const ContentPartsBody = memo(function ContentPartsBody({
               onExpansionChange={(state) => handleGroupExpansionChange(groupId, state)}
               labelPart={group.labelPart}
               withinActivityPhase={withinActivityPhase}
+              parentPhaseOwnsFailurePill={parentPhaseOwnsFailurePill}
             />,
           );
           return nodes;
@@ -1191,7 +1198,17 @@ const ContentPartsBody = memo(function ContentPartsBody({
 });
 
 const ContentParts = memo(function ContentParts(props: ContentPartsProps) {
-  const { attachments, messageId, conversationId } = props;
+  const { attachments, messageId, conversationId, isSubmitting, isLatestMessage } = props;
+  const messageContext = useMemo(
+    () => ({
+      messageId,
+      conversationId,
+      isExpanded: false as const,
+      isSubmitting: isLatestMessage === true && isSubmitting,
+      isLatestMessage,
+    }),
+    [messageId, conversationId, isSubmitting, isLatestMessage],
+  );
   const toolState = useRef<{
     messageId: string;
     conversationId: string | null | undefined;
@@ -1238,13 +1255,15 @@ const ContentParts = memo(function ContentParts(props: ContentPartsProps) {
   const attachmentsByName = useMemo(() => buildAttachmentsByName(attachments), [attachments]);
   const media = useMemo(() => ({ attachmentsByName }), [attachmentsByName]);
   return (
-    <MediaContext.Provider value={media}>
-      <ReasoningDisclosureContext.Provider value={reasoningDisclosures}>
-        <ToolDisclosureContext.Provider value={toolDisclosures}>
-          <ContentPartsBody {...props} />
-        </ToolDisclosureContext.Provider>
-      </ReasoningDisclosureContext.Provider>
-    </MediaContext.Provider>
+    <MessageContext.Provider value={messageContext}>
+      <MediaContext.Provider value={media}>
+        <ReasoningDisclosureContext.Provider value={reasoningDisclosures}>
+          <ToolDisclosureContext.Provider value={toolDisclosures}>
+            <ContentPartsBody {...props} />
+          </ToolDisclosureContext.Provider>
+        </ReasoningDisclosureContext.Provider>
+      </MediaContext.Provider>
+    </MessageContext.Provider>
   );
 });
 
