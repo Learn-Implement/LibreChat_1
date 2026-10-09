@@ -44,8 +44,8 @@ endpoints:
           - deepseek-flash
         fetch: false
       titleConvo: true
-      titleModel: "deepseek-v4-pro"
-      modelDisplayLabel: "DeepSeek V4"
+      titleModel: "deepseek-flash"
+      modelDisplayLabel: "DeepSeek-flash"
 
     - name: "Gemini"
       apiKey: "${GEMINI_API_KEY}"
