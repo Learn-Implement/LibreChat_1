@@ -1,17 +1,18 @@
 import type {
-  PromptRecord,
   StoredId,
+  PromptRecord,
   PromptDatabase,
-  ResolvedPrompt,
-  PromptProjection,
   PromptSelection,
+  PromptProjection,
   PromptGroupRecord,
   PromptCatalogStore,
-  PromptSourceAdapter,
+  NativePromptAdapter,
+  NativeResolvedPrompt,
 } from './types';
 import { toPromptGroupRecord, toPromptRecord } from './records';
 
 type ResolvablePrompt = Pick<PromptRecord, '_id' | 'groupId' | 'prompt' | 'type'>;
+type NativeResolvedValue = Omit<NativeResolvedPrompt, 'source'>;
 
 function isMatchingRevision(
   revision: PromptRecord | PromptProjection | null | undefined,
@@ -27,7 +28,7 @@ function isMatchingRevision(
 }
 
 /** A revision stored without a type is a text prompt, the same default the client uses. */
-function resolveValue(revision: ResolvablePrompt): ResolvedPrompt {
+function resolveValue(revision: ResolvablePrompt): NativeResolvedValue {
   return {
     groupId: revision.groupId,
     promptId: revision._id,
@@ -49,12 +50,14 @@ async function getPromptGroup(
   return record == null ? null : toPromptGroupRecord(record);
 }
 
+/** Resolves an exact revision, reading it when `loadedRevision` does not already
+ *  match this group and promptId. */
 async function resolveExact(
   db: PromptDatabase,
   groupId: string,
   promptId: string,
   loadedRevision?: PromptRecord | null,
-): Promise<ResolvedPrompt | null> {
+): Promise<NativeResolvedValue | null> {
   let revision = loadedRevision;
   if (!isMatchingRevision(revision, groupId, promptId)) {
     revision = await getPrompt(db, promptId);
@@ -62,39 +65,65 @@ async function resolveExact(
   return isMatchingRevision(revision, groupId, promptId) ? resolveValue(revision) : null;
 }
 
+/**
+ * Resolves a group's Production revision. The caller (the service) has already loaded
+ * `group`, so this only re-reads the revision itself: when the group's inlined
+ * `productionPrompt` is absent or stale it falls back to one `getPrompt` read.
+ */
 async function resolveProduction(
   db: PromptDatabase,
-  groupId: string,
-  loadedGroup?: PromptGroupRecord | null,
-): Promise<ResolvedPrompt | null> {
-  let group = loadedGroup;
-  if (group?._id !== groupId) {
-    group = await getPromptGroup(db, groupId);
-  }
-  if (group == null || group.productionId == null) {
+  group: PromptGroupRecord,
+): Promise<NativeResolvedValue | null> {
+  if (group.productionId == null) {
     return null;
   }
-  if (isMatchingRevision(group.productionPrompt, groupId, group.productionId)) {
+  if (isMatchingRevision(group.productionPrompt, group._id, group.productionId)) {
     return resolveValue(group.productionPrompt);
   }
   const revision = await getPrompt(db, group.productionId);
-  return isMatchingRevision(revision, groupId, group.productionId) ? resolveValue(revision) : null;
+  return isMatchingRevision(revision, group._id, group.productionId)
+    ? resolveValue(revision)
+    : null;
 }
 
 function toIdString(id: StoredId): string {
   return typeof id === 'string' ? id : id.toString();
 }
 
+/** The AI-2272 partial unique index is defense in depth: this maps the resulting
+ *  duplicate-key race to `createSourceGroup`'s `duplicate` outcome. */
+function isDuplicateKeyError(error: unknown): boolean {
+  return (error as { code?: number } | undefined)?.code === 11000;
+}
+
+/** A document validation failure, mapped to `createSourceGroup`'s `invalid` outcome. */
+function isValidationError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'ValidationError';
+}
+
+export function selectionUnavailableReason(selection: PromptSelection): 'production' | 'revision' {
+  return selection.type === 'production' ? 'production' : 'revision';
+}
+
 /** Native prompts stored in the LibreChat database. */
-export function createNativePromptAdapter(db: PromptDatabase): PromptSourceAdapter {
+export function createNativePromptAdapter(db: PromptDatabase): NativePromptAdapter {
   return {
-    resolvePrompt: ({ groupId, selection, loadedGroup, loadedRevision }) => {
-      if (selection.type === 'exact') {
-        return resolveExact(db, groupId, selection.promptId, loadedRevision);
+    resolvePrompt: async ({ group, selection, loadedRevision }) => {
+      if (selection.type === 'version') {
+        return { ok: false, error: { type: 'unsupported_selection', source: 'native' } };
       }
-      return resolveProduction(db, groupId, loadedGroup);
+      const resolved =
+        selection.type === 'exact'
+          ? await resolveExact(db, group._id, selection.promptId, loadedRevision)
+          : await resolveProduction(db, group);
+      if (resolved == null) {
+        return {
+          ok: false,
+          error: { type: 'unavailable_selection', reason: selectionUnavailableReason(selection) },
+        };
+      }
+      return { ok: true, value: { source: 'native', ...resolved } };
     },
-    getPromptGroup: (groupId) => getPromptGroup(db, groupId),
     getPrompt: (promptId) => getPrompt(db, promptId),
     getPrompts: async (groupId) => (await db.getPrompts({ groupId })).map(toPromptRecord),
     createPromptGroup: async ({ prompt, group = {}, author, authorName }) => {
@@ -125,6 +154,7 @@ export function createNativePromptAdapter(db: PromptDatabase): PromptSourceAdapt
 /** Local catalog operations over the LibreChat prompt group collection. */
 export function createPromptCatalogStore(db: PromptDatabase): PromptCatalogStore {
   return {
+    getPromptGroup: (groupId) => getPromptGroup(db, groupId),
     getListPromptGroupsByAccess: async ({ accessibleIds, name, category, limit, after }) => {
       const result = await db.getListPromptGroupsByAccess({
         accessibleIds: [...accessibleIds],
@@ -143,9 +173,26 @@ export function createPromptCatalogStore(db: PromptDatabase): PromptCatalogStore
       toPromptGroupRecord(await db.updatePromptGroup({ _id: groupId }, updates)),
     incrementPromptGroupUsage: (groupId) => db.incrementPromptGroupUsage(groupId),
     deletePromptGroup: (groupId) => db.deletePromptGroup({ _id: groupId }),
+    findSourceGroup: (identity) => db.findLangfusePromptGroup(identity),
+    createSourceGroup: async (input) => {
+      const { identity, name, author, authorName } = input;
+      try {
+        const value = await db.createLangfusePromptGroup({
+          ...identity,
+          name,
+          author,
+          authorName,
+        });
+        return { ok: true, value };
+      } catch (error) {
+        if (isDuplicateKeyError(error)) {
+          return { ok: false, error: { code: 'duplicate' } };
+        }
+        if (isValidationError(error)) {
+          return { ok: false, error: { code: 'invalid', cause: error } };
+        }
+        throw error;
+      }
+    },
   };
-}
-
-export function selectionUnavailableReason(selection: PromptSelection): 'production' | 'revision' {
-  return selection.type === 'production' ? 'production' : 'revision';
 }
