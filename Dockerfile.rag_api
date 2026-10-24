@@ -1,0 +1,2 @@
+FROM registry.librechat.ai/danny-avila/librechat-rag-api-dev-lite:latest
+RUN pip install --no-cache-dir --upgrade certifi
