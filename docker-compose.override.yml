@@ -48,7 +48,9 @@ services:
       SESSION_SECRET: ${ADMIN_PANEL_SESSION_SECRET}
 
   rag_api:
-    image: registry.librechat.ai/danny-avila/librechat-rag-api-dev-lite:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.rag_api
     logging:
       driver: "json-file"
       options:
