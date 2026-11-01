@@ -20,6 +20,7 @@ jest.mock('react-hook-form', () => ({
 
 jest.mock('@librechat/client', () => ({
   Spinner: () => <div data-testid="spinner" />,
+  cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(' '),
 }));
 
 jest.mock('librechat-data-provider', () => ({
@@ -46,7 +47,6 @@ jest.mock('@librechat/chat/react', () => {
 
 jest.mock('~/hooks', () => ({
   useAddedResponse: () => ({}),
-  useScrollbarGutterSeed: jest.fn(),
   useLocalize: () => (key: string) => key,
 }));
 

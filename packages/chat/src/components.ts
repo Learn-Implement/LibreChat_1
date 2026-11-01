@@ -19,6 +19,8 @@ export type {
 /** Composer: the chat input, its controls and the steering queue. */
 export { default as StopButton } from './components/composer/StopButton';
 export { default as MentionItem } from './components/composer/MentionItem';
+export { default as MentionPopover } from './components/composer/popover/Mention';
+export { default as CommandPopover } from './components/composer/popover/Command';
 export { default as CollapseChat } from './components/composer/CollapseChat';
 export { default as ComposerChip } from './components/composer/bar/Chip';
 export { default as composerClearance } from './components/composer/clearance';
@@ -31,6 +33,12 @@ export {
 } from './components/composer/steering/QueuedTurnPortal';
 export type { ComposerSubmitRoute } from './components/composer/submit';
 export type { MentionItemProps } from './components/composer/MentionItem';
+export type { MentionPopoverProps } from './components/composer/popover/Mention';
+export type {
+  CommandOption,
+  CommandPopoverProps,
+  CommandDismissReason,
+} from './components/composer/popover/Command';
 export type { ChipProps as ComposerChipProps } from './components/composer/bar/Chip';
 export type { SteerReceiptState } from './components/composer/steering/Receipt';
 export { default as FileUpload } from './components/composer/files/FileUpload';
@@ -70,6 +78,8 @@ export { default as MessageTimestamp } from './components/messages/MessageTimest
 export { getMessageRowWidthClass } from './components/messages/width';
 export { isValidTimestamp, getMessageTimestamp } from './components/messages/time';
 export type { MessageTimestamp as MessageTimestampParts } from './components/messages/time';
+export { default as Fork } from './components/messages/Fork';
+export { default as Feedback } from './components/messages/Feedback';
 
 /** Parts: the leaf components and row classes tool cards share. */
 export { default as Stdout } from './components/parts/Stdout';
@@ -86,6 +96,18 @@ export {
   FOLD_GLYPH_SELECTOR,
   ARTIFACT_ROW_NAV_SPACING,
 } from './components/parts/rows';
+export { default as AskOptions } from './components/parts/AskOptions';
+export type { AskOption } from './components/parts/AskOptions';
+export { default as SkillPills } from './components/parts/SkillPills';
+export type { SkillPillsSource } from './components/parts/SkillPills';
+export { default as MessageQuotes } from './components/parts/MessageQuotes';
+export {
+  default as DiffView,
+  diffPreviewText,
+  parseUnifiedDiff,
+  buildEditPreviewDiff,
+} from './components/parts/DiffView';
+export type { DiffLine, ParsedDiff, TextEditPreview } from './components/parts/DiffView';
 export { default as AttachmentImage } from './components/composer/files/Image';
 export { default as ImagePreview } from './components/composer/files/ImagePreview';
 export { default as SendButton } from './components/composer/SendButton';
@@ -100,3 +122,17 @@ export type {
   ComposerHintKind,
   ComposerHintState,
 } from './components/composer/bar/hint';
+
+/** Chat pane: the layout that seats the header, message column and composer band. */
+export { default as ChatPane } from './components/pane/ChatPane';
+export { getChatPaneView } from './components/pane/view';
+export type { ChatPaneProps } from './components/pane/ChatPane';
+export type { ChatPaneView, ChatPaneColumn } from './components/pane/view';
+
+/** Message list root: the scroll container, mount window and pending tail around the thread. */
+export { default as MessagesView } from './components/messages/MessagesView';
+export type {
+  MessagesViewProps,
+  MessagesThreadProps,
+  MessagesScrollButtonProps,
+} from './components/messages/MessagesView';

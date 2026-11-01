@@ -128,7 +128,14 @@ export {
   MessagesHostProvider,
   setDefaultMessagesHost,
 } from './react/messages/host';
-export type { MessagesHost } from './react/messages/host';
+export type {
+  ForkEvents,
+  MessagesHost,
+  ForkPreferences,
+  ForkConversation,
+  MessagesScrolling,
+  ReportNearBottom,
+} from './react/messages/host';
 export {
   SoleToolContext,
   LoneGroupContext,
@@ -155,6 +162,17 @@ export type {
 export { boundIntentLabel, getToolCallIntent, useToolCallIntent } from './react/parts/intent';
 export { default as useFollowScroll } from './react/parts/useFollowScroll';
 export { default as useRowHandoff } from './react/parts/handoff';
+export {
+  askAnswerTextAtom,
+  useAskAnswerHost,
+  askSubmitStatusAtom,
+  askAnswerCheckedAtom,
+  AskAnswerHostProvider,
+  askAnswerSelectionAtom,
+  collapsedAskActionsAtom,
+  releasedComposerTextAtom,
+} from './react/parts/ask';
+export type { AskAnswerStatus, ReleasedComposerStash } from './react/parts/ask';
 export { useFilesHost, FilesHostProvider } from './react/files';
 export type { FilesHost } from './react/files';
 export { default as useReducedMotion } from './react/motion';
@@ -162,4 +180,21 @@ export { default as useElementSize } from './react/size';
 export { default as useAudioLevels, frameLevel } from './react/levels';
 export { default as useInitPopoverInput } from './react/popover';
 export { useComposerHost, ComposerHostProvider } from './react/input';
-export type { ComposerHost, ComposerShortcutAction } from './react/input';
+export type {
+  ComposerHost,
+  CommandListRow,
+  CommandListProps,
+  ComposerShortcutAction,
+} from './react/input';
+export {
+  RowMountProvider,
+  useRowMountWindow,
+  useProgressiveRowMount,
+  completeProgressiveRowMounts,
+} from './react/messages/useProgressiveRowMount';
+export type { RowMountWindow } from './react/messages/useProgressiveRowMount';
+export {
+  default as useScrollbarGutter,
+  useScrollbarGutterSeed,
+  SCROLLBAR_GUTTER_PROPERTY,
+} from './react/messages/useScrollbarGutter';
