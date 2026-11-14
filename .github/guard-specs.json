@@ -23,6 +23,7 @@
     "client/src/Providers/__tests__/handoff.spec.tsx": ["client/index.html"],
     "client/src/__tests__/hosts.test.tsx": ["client/src/App.jsx"],
     "client/src/__tests__/loadingCanvas.spec.ts": ["client/index.html"],
+    "client/src/__tests__/loadingSpinner.spec.tsx": ["client/index.html"],
     "client/src/components/Chat/Input/Composer/__tests__/semanticTokens.spec.ts": [
       "client/src/components/Chat/",
       "client/src/hooks/Input/usePaletteEntries.tsx",
@@ -63,6 +64,11 @@
     "packages/client/src/components/Progress.spec.tsx": ["packages/client/src/theme/tokens.css"],
     "packages/client/src/components/SegmentedMeter.spec.tsx": [
       "packages/client/src/theme/tokens.css"
+    ],
+    "packages/client/src/components/SharedControlsTheme.spec.tsx": [
+      "packages/client/src/theme/",
+      "packages/client/tailwind.preset.cjs",
+      "package-lock.json"
     ],
     "packages/client/src/components/__tests__/radixLayers.spec.ts": ["package-lock.json"],
     "packages/client/src/theme/defaults.spec.ts": ["packages/client/src/theme/defaults.css"],
