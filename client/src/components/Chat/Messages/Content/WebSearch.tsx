@@ -2,10 +2,12 @@ import { useMemo, useState, useContext } from 'react';
 import { createPortal } from 'react-dom';
 import { Tools } from 'librechat-data-provider';
 import { parseJsonField } from '@librechat/chat';
+import { ToolCall } from '@librechat/chat/components';
 import { Globe, ChevronDown, Info } from 'lucide-react';
 import { ROW_GLYPH_SLOT, useToolPreparation, useExpandCollapse } from '@librechat/chat/components';
 import {
   Button,
+  Shimmer,
   HoverCard,
   HoverCardTrigger,
   HoverCardPortal,
@@ -36,8 +38,8 @@ import { HeaderActionSlotContext } from './slot';
 import { useSearchContext } from '~/Providers';
 import SearchVerticals from './verticals';
 import { useLocalize } from '~/hooks';
-import ToolCall from './ToolCall';
 import cn from '~/utils/cn';
+import './toolCallSlots';
 
 type ProgressKeys =
   | 'com_ui_web_searching'
@@ -428,7 +430,7 @@ export default function WebSearch({
   }
 
   return (
-    <div className="relative my-1.5 flex h-5 shrink-0 items-center gap-2">
+    <div className="text-text-secondary relative my-1.5 flex h-5 shrink-0 items-center gap-2">
       <span className="sr-only" aria-live="polite" aria-atomic="true">
         {genericProgressText}
       </span>
@@ -436,9 +438,7 @@ export default function WebSearch({
         {showSources && <StackedFavicons sources={streamingSources} start={-5} />}
         <Globe className="text-text-secondary size-4 shrink-0" />
       </span>
-      <span className="tool-status-text shimmer text-text-secondary min-w-0 truncate font-medium">
-        {progressText}
-      </span>
+      <Shimmer className="tool-status-text min-w-0 truncate font-medium">{progressText}</Shimmer>
     </div>
   );
 }

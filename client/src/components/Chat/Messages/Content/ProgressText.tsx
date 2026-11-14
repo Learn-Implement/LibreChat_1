@@ -4,27 +4,27 @@ import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import * as Popover from '@radix-ui/react-popover';
 import { phaseReceipts } from '@librechat/chat/react';
-import { Button, disclosureChevronVariants } from '@librechat/client';
 import { isReportableRunStepDuration } from 'librechat-data-provider';
+import { Button, Shimmer, disclosureChevronVariants } from '@librechat/client';
 import {
   ElapsedTimer,
   CancelledIcon,
   ROW_GLYPH_SLOT,
-  useToolPreparation,
   useFailedReveal,
+  useToolPreparation,
+  PROGRESS_TEXT_CONTENT,
+  PROGRESS_TEXT_WRAPPER,
 } from '@librechat/chat/components';
 import type { ToolCallPhase } from '@librechat/chat';
 import { cn, getRunStepDurationLabels } from '~/utils';
 import { useLocalize } from '~/hooks';
 
-const wrapperClass =
-  'progress-text-wrapper text-text-secondary relative -mt-[0.046875rem] h-5 w-full leading-5';
+const wrapperClass = PROGRESS_TEXT_WRAPPER;
 
 /** `right-0` and `max-w-full` cap the absolutely-positioned line at the message
  *  column; the label span truncates itself, so overflow stays visible for the
  *  button's focus ring. */
-const contentClass =
-  'progress-text-content absolute left-0 right-0 top-0 max-w-full overflow-visible whitespace-nowrap';
+const contentClass = PROGRESS_TEXT_CONTENT;
 
 const Wrapper = ({
   popover,
@@ -228,15 +228,12 @@ export default function ProgressText({
             up the subtitle first, and a label wider than the box truncates at
             the box (`max-w-full`), not past the row. */}
         <span className="flex min-w-0 items-center gap-2">
-          <span
-            className={cn(
-              showShimmer ? 'shimmer' : '',
-              'max-w-full min-w-0 truncate font-medium',
-              subtitle && 'shrink-0',
-            )}
+          <Shimmer
+            active={showShimmer}
+            className={cn('max-w-full min-w-0 truncate font-medium', subtitle && 'shrink-0')}
           >
             {text}
-          </span>
+          </Shimmer>
           {subtitle && (
             <span className="text-text-secondary min-w-0 shrink truncate font-normal">
               {subtitle}

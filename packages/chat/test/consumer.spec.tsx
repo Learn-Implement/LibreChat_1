@@ -33,10 +33,13 @@ import {
   MessagePartIndex,
   StreamHostProvider,
   ChatSurfaceProvider,
+  SteerHostProvider,
   MessagesHostProvider,
   MessagePartsHostProvider,
   ParentSubagentsProvider,
+  emptyToolCallChrome,
 } from '@librechat/chat/react';
+import { createSteerHost } from '../src/__fixtures__/steerHost';
 import type {
   ChatEvent,
   TMessage,
@@ -213,6 +216,7 @@ const host: MessagePartsHost = {
   usePaneConversationId: () => null,
   useLiveAppliedSteer: () => [false, () => undefined],
   useShare: () => ({}),
+  useToolCallChrome: emptyToolCallChrome,
 };
 
 const messagesHost: MessagesHost = {
@@ -246,6 +250,7 @@ const messagesHost: MessagesHost = {
   }),
   renderMessageIcon: () => null,
   useMaximizeChatSpace: () => false,
+  useFlatThread: () => true,
   useHideSelectedAuthor: () => false,
   useAgentsMap: () => undefined,
   renderMessageBody: () => null,
@@ -670,16 +675,18 @@ describe('a consumer rendering subagent activity', () => {
       <I18nextProvider i18n={i18n}>
         <QueryClientProvider client={new QueryClient()}>
           <ChatContext.Provider value={contract}>
-            <MessagesHostProvider host={threadHost}>
-              <MessagePartsHostProvider host={host}>
-                <MessagesView
-                  messages={messages}
-                  messagesTree={messages}
-                  showScrollButton={false}
-                  maximizeChatSpace={false}
-                />
-              </MessagePartsHostProvider>
-            </MessagesHostProvider>
+            <SteerHostProvider host={createSteerHost()}>
+              <MessagesHostProvider host={threadHost}>
+                <MessagePartsHostProvider host={host}>
+                  <MessagesView
+                    messages={messages}
+                    messagesTree={messages}
+                    showScrollButton={false}
+                    maximizeChatSpace={false}
+                  />
+                </MessagePartsHostProvider>
+              </MessagesHostProvider>
+            </SteerHostProvider>
           </ChatContext.Provider>
         </QueryClientProvider>
       </I18nextProvider>,
@@ -743,9 +750,10 @@ describe('a consumer styled by the published stylesheet alone', () => {
     const statusRule = declaredFor(screen.getByText('Woke up'));
     expect(statusRule.match(/var\(--font-size-base, 1rem\)/g)).toHaveLength(2);
 
-    expect(declaredFor(screen.getByTestId('stream-elapsed'))).toMatch(/animation:[^;]*\bshimmer\b/);
-    expect(stylesheet).toMatch(/@keyframes shimmer\s*\{/);
-    expect(stylesheet).toMatch(/@keyframes shimmer-rtl\s*\{/);
+    const band = screen.getByTestId('stream-elapsed').querySelector('.shimmer-band');
+    expect(band && declaredFor(band)).toMatch(/animation:[^;]*\bshimmer-band\b/);
+    expect(stylesheet).toMatch(/@keyframes shimmer-band\s*\{/);
+    expect(stylesheet).toMatch(/@keyframes shimmer-copy\s*\{/);
     expect(stylesheet).toMatch(/html\.high-contrast\s*\{[^}]*--shimmer-dip-alpha: 1/);
 
     const icon = screen.getByRole('button', { name: 'Remove report.pdf' }).querySelector('svg');

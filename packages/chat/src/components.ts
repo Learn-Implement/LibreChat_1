@@ -29,6 +29,8 @@ export {
   COMPOSER_FOCUS_OWNER_ATTRIBUTE,
 } from './components/composer/Frame';
 export { default as CommandPopover } from './components/composer/popover/Command';
+export { default as ComposerPalette } from './components/composer/Palette';
+export type { ComposerPaletteProps } from './components/composer/Palette';
 export { default as CollapseChat } from './components/composer/CollapseChat';
 export { default as ComposerChip } from './components/composer/bar/Chip';
 export { default as composerClearance } from './components/composer/clearance';
@@ -75,6 +77,15 @@ export { getFileType } from './components/composer/files/kinds';
 export type { FileKind } from './components/composer/files/kinds';
 export type { SubtitleAction } from './components/composer/files/FileContainer';
 export type { PastedTextEdit } from './components/composer/files/PastedTextDialog';
+export { composerChipClasses } from './components/composer/chip';
+export type { ComposerChipClasses } from './components/composer/chip';
+export { default as CodeWorkspaceMenu } from './components/composer/Workspace';
+export type {
+  WorkspaceLocalize,
+  WorkspaceMachineQuery,
+  CodeWorkspaceMenuProps,
+  CodeWorkspaceMenuWorkspace,
+} from './components/composer/Workspace';
 
 /** Message list building blocks: rows, headers, sibling navigation and the streaming timer. */
 export { default as SubRow } from './components/messages/SubRow';
@@ -96,6 +107,8 @@ export { default as MessageRow } from './components/messages/MessageRow';
 export { default as WakeupRow } from './components/messages/WakeupRow';
 export { default as PendingTurn } from './components/messages/PendingTurn';
 export type { PendingTurnProps } from './components/messages/PendingTurn';
+export { default as PendingSteers } from './components/messages/PendingSteers';
+export type { PendingSteersProps } from './components/messages/PendingSteers';
 export { default as MessageTimestamp } from './components/messages/MessageTimestamp';
 export { getMessageRowWidthClass } from './components/messages/width';
 export { isValidTimestamp, getMessageTimestamp } from './components/messages/time';
@@ -124,12 +137,20 @@ export {
   TOOL_ROW_CLASSES,
   FOLD_RAIL_CLASSES,
   FOLD_GLYPH_SELECTOR,
+  PROGRESS_TEXT_CONTENT,
+  PROGRESS_TEXT_WRAPPER,
   ARTIFACT_ROW_NAV_SPACING,
 } from './components/parts/rows';
 export { default as AskOptions } from './components/parts/AskOptions';
 export { default as AskPopover } from './components/composer/ask/Popover';
 export type { LiveAsk, AskAnswerView, AskPopoverProps } from './components/composer/ask/Popover';
 export type { AskOption } from './components/parts/AskOptions';
+export { default as AutoHeight } from './components/parts/AutoHeight';
+export { default as AskUserQuestion } from './components/parts/ask/Question';
+export { default as AskUserQuestions } from './components/parts/ask/Questions';
+export { default as AskUserQuestionCall } from './components/parts/ask/Call';
+export { default as AskUserQuestionProgress } from './components/parts/ask/Progress';
+export type { AskCardMode } from './components/parts/ask/Question';
 export { default as SkillPills } from './components/parts/SkillPills';
 export type { SkillPillsSource } from './components/parts/SkillPills';
 export { default as MessageQuotes } from './components/parts/MessageQuotes';
@@ -149,6 +170,8 @@ export { default as MemoryInfo } from './components/parts/MemoryInfo';
 export { default as DialogImage } from './components/parts/DialogImage';
 export { default as PendingSkillCall } from './components/parts/PendingSkillCall';
 export { default as ToolCallLimitNotice } from './components/parts/ToolCallLimitNotice';
+export { default as ToolCall } from './components/parts/ToolCall';
+export type { ToolCallProps } from './components/parts/ToolCall';
 export { default as ResumeAuthorHeader } from './components/parts/ResumeAuthorHeader';
 export { ToolAuthWarning, ToolAuthWarningContext } from './components/parts/auth';
 export { ToolPreparation, useToolPreparation } from './components/parts/preparation';
@@ -218,6 +241,7 @@ export type { ChatPaneView, ChatPaneColumn } from './components/pane/view';
 export { default as ChatScreen } from './components/pane/Screen';
 export { default as ChatStarters } from './components/pane/starters';
 export { getChatPaneChrome } from './components/pane/chrome';
+export { loadScreenMessages } from './components/pane/load';
 export type {
   ChatScreenProps,
   ChatScreenComposerProps,
@@ -270,3 +294,36 @@ export {
 export { default as CopyButton } from './components/parts/CopyButton';
 export { default as ActionButton } from './components/parts/ActionButton';
 export { default as LangIcon, hasLangIcon } from './components/parts/LangIcon';
+export { default as Attachment, AttachmentGroup } from './components/parts/Attachment';
+export { default as RetrievalCall } from './components/parts/Retrieval';
+export type { RetrievalCallProps, RetrievalProgress } from './components/parts/Retrieval';
+export {
+  bySalience,
+  byEntrySalience,
+  displayFilename,
+  attachmentSalience,
+  isTextAttachment,
+  isImageAttachment,
+  renderAttachmentKey,
+  isInternalSandboxArtifact,
+} from './components/parts/attachmentTypes';
+
+/** Tool approval: the shared decision state and the composer's review panel. */
+export {
+  default as ApprovalProvider,
+  ResumeSubmitContext,
+  useApprovalContext,
+  useAskSubmitStatus,
+  useResumeSubmit,
+} from './components/approval/context';
+export type {
+  ResumeSubmitTransport,
+  ToolApprovalDecisionDraft,
+} from './components/approval/context';
+export { PendingToolApprovalButton, PendingToolApprovalPanel } from './components/approval/Review';
+export type {
+  ApprovalRequestRenderProps,
+  ApprovalReviewCopy,
+  PendingToolApprovalButtonProps,
+  PendingToolApprovalPanelProps,
+} from './components/approval/Review';
