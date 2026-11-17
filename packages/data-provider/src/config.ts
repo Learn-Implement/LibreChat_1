@@ -1913,6 +1913,15 @@ export const agentsEndpointSchema = baseEndpointSchema
                     secret: z.string().min(1),
                     recovery: z
                       .object({
+                        routes: z
+                          .record(
+                            z.string().min(1).max(128),
+                            z
+                              .string()
+                              .url()
+                              .regex(/^wss?:\/\//),
+                          )
+                          .optional(),
                         maxDisconnectMs: z.number().int().min(100).max(120000).default(15000),
                         retryDelayMs: z.number().int().min(10).max(10000).default(250),
                         maxJournalBytes: z
@@ -2810,6 +2819,23 @@ export const modelListEndpointSchema = baseEndpointSchema.merge(
     models: z.array(z.string()).optional(),
   }),
 );
+
+export const googleEndpointSchema = modelListEndpointSchema.extend({
+  /** USD per million tokens, including an explicit cached-input rate for the billing tier. */
+  tokenConfig: z
+    .record(
+      z.string(),
+      z.object({
+        prompt: z.number().nonnegative(),
+        completion: z.number().nonnegative(),
+        cacheRead: z.number().nonnegative(),
+      }),
+    )
+    .optional(),
+});
+
+export type TGoogleEndpoint = z.infer<typeof googleEndpointSchema>;
+export type TGoogleTokenConfig = NonNullable<TGoogleEndpoint['tokenConfig']>;
 
 export const anthropicEndpointSchema = baseEndpointSchema.merge(
   z.object({
@@ -5078,7 +5104,7 @@ export const configSchema = z.object({
        */
       all: baseEndpointSchema.omit({ baseURL: true }).optional(),
       [EModelEndpoint.openAI]: modelListEndpointSchema.optional(),
-      [EModelEndpoint.google]: modelListEndpointSchema.optional(),
+      [EModelEndpoint.google]: googleEndpointSchema.optional(),
       [EModelEndpoint.anthropic]: anthropicEndpointSchema.optional(),
       [EModelEndpoint.azureOpenAI]: azureEndpointSchema.optional(),
       [EModelEndpoint.azureAssistants]: assistantEndpointSchema.optional(),
